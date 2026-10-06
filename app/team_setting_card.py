@@ -54,6 +54,7 @@ from app.observe_ego_gift_selection import (
 from app.starlight_bonus import StarlightCard, StarlightLevelSelector
 from app.theme_pack_setting_interface import ThemePackSettingDialog
 from module.config import TeamSetting, cfg, theme_list
+from module.config.mirror_presets import apply_faust_hollow_preset, load_faust_hollow_plan
 from module.config.team_import_export import (
     apply_team_settings,
     export_team_settings,
@@ -269,6 +270,14 @@ class TeamSettingCard(QFrame):
         self.import_button = PushButton(self.tr("导入设置"))
         self.import_button.clicked.connect(self.on_import_settings)
 
+        self.preset_button = PushButton(self.tr("空洞预设（草稿）"))
+        self.preset_button.clicked.connect(self.on_apply_faust_hollow_preset)
+        self.disable_preset_button = PushButton(self.tr("停用预设"))
+        self.disable_preset_button.clicked.connect(self.on_disable_mirror_preset)
+        self.preset_status_label = QLabel()
+        self.preset_status_label.setWordWrap(True)
+        self.preset_status_label.setTextFormat(Qt.TextFormat.PlainText)
+
         self.cancel_button = PushButton(self.tr("取消"))
         self.cancel_button.clicked.connect(self.cancel_team_setting)
         self.confirm_button = PrimaryPushButton(self.tr("保存"))
@@ -310,11 +319,14 @@ class TeamSettingCard(QFrame):
 
         self.setting_layout.addWidget(self.export_button)
         self.setting_layout.addWidget(self.import_button)
+        self.setting_layout.addWidget(self.preset_button)
+        self.setting_layout.addWidget(self.disable_preset_button)
         self.setting_layout.addStretch()
         self.setting_layout.addWidget(self.cancel_button)
         self.setting_layout.addWidget(self.confirm_button)
 
         self.layout_.addWidget(self.combobox_layout)
+        self.layout_.addWidget(self.preset_status_label)
         self.layout_.addLayout(self.sinner_layout)
         self.layout_.addWidget(self.gift_system_layout)
         self.layout_.addWidget(self.custom_layout)
@@ -454,12 +466,10 @@ class TeamSettingCard(QFrame):
         second_system_action = self.team_setting.second_system_action
         ignore_shop = self.team_setting.ignore_shop
         for i in range(4):
-            if second_system_action[i]:
-                self.findChild(BaseCheckBox, second_system_mode[i]).set_checked(True)
+            self.findChild(BaseCheckBox, second_system_mode[i]).set_checked(bool(second_system_action[i]))
 
         for i in range(1, 6):
-            if ignore_shop[i - 1]:
-                self.findChild(BaseCheckBox, f"ignore_shop_{i}").set_checked(True)
+            self.findChild(BaseCheckBox, f"ignore_shop_{i}").set_checked(bool(ignore_shop[i - 1]))
 
         for checkbox in all_checkbox_config_name:
             if self.findChild(BaseCheckBox, checkbox):
@@ -484,6 +494,33 @@ class TeamSettingCard(QFrame):
         observe_module = self.findChild(ObserveEgoGiftModule, "ObserveEgoGiftModule")
         if observe_module:
             observe_module.load_selected(self.team_setting.observe_ego_gift_selected)
+
+        self.refresh_mirror_preset_status()
+
+    def refresh_mirror_preset_status(self):
+        enabled = self.team_setting.mirror_preset == "faust_hollow"
+        self.disable_preset_button.setVisible(enabled)
+        self.preset_status_label.setVisible(enabled)
+        if enabled:
+            plan = load_faust_hollow_plan()
+            route = " → ".join(entry["theme_pack"] for entry in plan["floors"])
+            self.preset_status_label.setText(
+                self.tr("空洞预设草稿：整局自动执行尚未就绪，启动会停止。")
+                + "\n" + route + "\n" + "；".join(plan["blockers"])
+            )
+
+    def on_apply_faust_hollow_preset(self):
+        self.disconnect_mediator()
+        try:
+            self.team_setting = apply_faust_hollow_preset(self.team_setting)
+            self.read_settings()
+            self.refresh_starlight_select()
+        finally:
+            self.connect_mediator()
+
+    def on_disable_mirror_preset(self):
+        self.team_setting.mirror_preset = "standard"
+        self.refresh_mirror_preset_status()
 
     def foolproof(self, team_system):
         for checkbox in all_checkbox_config_name:
@@ -614,6 +651,9 @@ class TeamSettingCard(QFrame):
 
         self.export_button.setText(self.tr("导出设置"))
         self.import_button.setText(self.tr("导入设置"))
+        self.preset_button.setText(self.tr("空洞预设（草稿）"))
+        self.disable_preset_button.setText(self.tr("停用预设"))
+        self.refresh_mirror_preset_status()
         self.cancel_button.setText(self.tr("取消"))
         self.confirm_button.setText(self.tr("保存"))
 

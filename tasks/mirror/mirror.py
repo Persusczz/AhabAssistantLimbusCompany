@@ -6,6 +6,7 @@ import numpy as np
 
 from module.automation import auto
 from module.config import TeamSetting, cfg
+from module.config.mirror_presets import ensure_mirror_preset_ready
 from module.decorator.decorator import begin_and_finish_time_log
 from module.logger import log
 from module.my_error.my_error import (
@@ -46,11 +47,13 @@ def to_log_with_time(msg, elapsed_time):
 
 class Mirror:
     def __init__(self, team_setting: TeamSetting, team_num: int):
+        ensure_mirror_preset_ready(team_setting)
         team_setting = team_setting.model_copy(deep=True)  # 避免修改原始配置
         self.logger = log
         self.team_order = team_num
         self.sinner_team = team_setting.sinner_order  # 选择的罪人序列
         self.team_number = team_setting.team_number  # 选择的编队名
+        self.mirror_preset = team_setting.mirror_preset
         self.shop = Shop(team_setting)
         self.system = all_systems[team_setting.team_system]  # 选择的体系
         self.avoid_skill_3 = team_setting.avoid_skill_3  # 是否避免使用3技能
@@ -265,7 +268,10 @@ class Mirror:
                 self.get_which_floor("mirror/theme_pack/theme_pack_setting_assets.png")
                 self._enter_hard_mode_if_needed()
                 switch_theme_pack_difficulty(self.hard_mode)
-                select_theme_pack(self.hard_mode, self.floor, self.team_order, self.use_custom_theme_pack_weight)
+                select_theme_pack(
+                    self.hard_mode, self.floor, self.team_order, self.use_custom_theme_pack_weight,
+                    mirror_preset=self.mirror_preset,
+                )
                 if self.re_formation_each_floor:
                     self.first_battle = True
                 try:

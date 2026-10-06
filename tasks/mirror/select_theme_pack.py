@@ -2,8 +2,10 @@ from time import sleep
 
 from module.automation import TextMatchResult, auto
 from module.config import cfg, theme_list
+from module.config.mirror_presets import match_faust_hollow_pack
 from module.decorator.decorator import begin_and_finish_time_log
 from module.logger import log
+from module.my_error.my_error import cannotOperateGameError
 from tasks.base.back_init_menu import back_init_menu
 from utils.path_manager import path_manager
 
@@ -33,7 +35,10 @@ def switch_theme_pack_difficulty(hard_mode=False):
 
 @begin_and_finish_time_log(task_name="选择镜牢主题包")
 # 选择镜牢主题包
-def select_theme_pack(hard_mode=False, floor=None, team_num=None, use_custom_theme_pack_weight=False):
+def select_theme_pack(hard_mode=False, floor=None, team_num=None, use_custom_theme_pack_weight=False, mirror_preset="standard"):
+    strict_preset = mirror_preset == "faust_hollow"
+    if strict_preset and floor not in range(1, 6):
+        raise cannotOperateGameError("空洞预设无法确认当前楼层，停止选择主题包")
     loop_count = 30
     auto.model = "clam"
     scale = cfg.set_win_size / 1080
@@ -65,7 +70,7 @@ def select_theme_pack(hard_mode=False, floor=None, team_num=None, use_custom_the
             continue
 
         try:
-            if floor == 5 and cfg.select_event_pack:
+            if floor == 5 and cfg.select_event_pack and not strict_preset:
                 if all_theme_pack := auto.find_element(
                     "mirror/theme_pack/theme_pack_features.png",
                     find_type="image_with_multiple_targets",
@@ -84,7 +89,7 @@ def select_theme_pack(hard_mode=False, floor=None, team_num=None, use_custom_the
                 find_type="image_with_multiple_targets",
                 take_screenshot=True,
             ):
-                if floor == 5 and cfg.skip_event_pack:
+                if floor == 5 and cfg.skip_event_pack and not strict_preset:
                     all_theme_pack.sort(key=lambda pos: (pos[0], pos[1]))
                     all_theme_pack.pop(0)  # 删除最左边的卡包
                 for pack in all_theme_pack:
@@ -97,11 +102,16 @@ def select_theme_pack(hard_mode=False, floor=None, team_num=None, use_custom_the
                         min(pack[1] + 390 * scale, cfg.set_win_size),
                     )
                     crop = (top_left[0], top_left[1], bottom_right[0], bottom_right[1])
-                    result = auto.find_language_text(theme_pack_list_zh, theme_pack_list_en, crop)
-                    if isinstance(result, TextMatchResult):
+                    if strict_preset:
+                        texts = auto.find_text_element("", crop, only_text=True) or []
+                        theme_pack_name = " ".join(texts)
+                        theme_pack_weight = 1 if match_faust_hollow_pack(floor, theme_pack_name) else -1
+                    else:
+                        result = auto.find_language_text(theme_pack_list_zh, theme_pack_list_en, crop)
+                    if not strict_preset and isinstance(result, TextMatchResult):
                         theme_pack_weight = result.value
                         theme_pack_name = result.text
-                    else:
+                    elif not strict_preset:
                         theme_pack_weight = unknown_weight
                         theme_pack_name = "unknown"
 
@@ -112,7 +122,8 @@ def select_theme_pack(hard_mode=False, floor=None, team_num=None, use_custom_the
                 max_weight = max(weight_list)
                 log.debug(f"当前主题包权重列表：{list(zip(pack_name, weight_list))}")
                 # 如果存在权重最大值大于等于优选阈值的主题包，则选择该主题包
-                if max_weight >= int(theme_list.preferred_thresholds):
+                threshold = 1 if strict_preset else int(theme_list.preferred_thresholds)
+                if max_weight >= threshold:
                     max_index = weight_list.index(max_weight)
                     pack = all_theme_pack[max_index]
                     auto.mouse_drag_down(pack[0], pack[1])
@@ -124,6 +135,8 @@ def select_theme_pack(hard_mode=False, floor=None, team_num=None, use_custom_the
 
         except Exception as e:
             log.error(f"识别主题包出错:{e}")
+            if strict_preset:
+                raise cannotOperateGameError(f"空洞预设：第{floor}层主题包识别出错，停止操作") from e
             continue
 
         if refresh_times >= 0 and auto.click_element("mirror/theme_pack/refresh_assets.png"):
@@ -136,6 +149,8 @@ def select_theme_pack(hard_mode=False, floor=None, team_num=None, use_custom_the
 
         # 如果多次刷新仍无达到优选阈值的主题包，则选择权重最大的主题包
         if refresh_times <= 0:
+            if strict_preset:
+                raise cannotOperateGameError(f"空洞预设：第{floor}层未识别到指定主题包，停止操作；不会选择其他卡包")
             try:
                 max_weight = max(weight_list)
                 max_index = weight_list.index(max_weight)
@@ -158,6 +173,8 @@ def select_theme_pack(hard_mode=False, floor=None, team_num=None, use_custom_the
         if loop_count < 10:
             auto.model = "aggressive"
         if loop_count < 0:
+            if strict_preset:
+                raise cannotOperateGameError(f"空洞预设：第{floor}层主题包识别失败，停止操作")
             log.error("无法选取主题包,尝试回到初始界面")
             back_init_menu()
             break

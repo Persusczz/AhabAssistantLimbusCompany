@@ -359,6 +359,12 @@ def Mirror_task():
 
 def script_task() -> None | int:
     start_time = time()
+    if cfg.mirror:
+        from module.config.mirror_presets import ensure_mirror_preset_ready
+
+        for index, selected in enumerate(cfg.teams_be_select, start=1):
+            if selected:
+                ensure_mirror_preset_ready(cfg.config.teams[str(index)])
     # 获取（启动）游戏对游戏窗口进行设置
     init_game()
     _warn_if_game_monitor_hdr_enabled()

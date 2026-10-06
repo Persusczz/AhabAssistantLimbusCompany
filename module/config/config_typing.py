@@ -1,10 +1,13 @@
-from typing import List, Optional
+from typing import List, Literal, Optional
 
 from pydantic import BaseModel, field_validator
 
 
 class TeamSetting(BaseModel):
     """单个队伍设置"""
+
+    mirror_preset: Literal["standard", "faust_hollow"] = "standard"
+    """镜牢流程预设；空洞流程尚未就绪时禁止退回普通自动战斗"""
 
     team_system: int = 0
     """队伍使用的体系"""
