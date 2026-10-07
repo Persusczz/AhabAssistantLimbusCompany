@@ -12,6 +12,7 @@ from module.automation import auto
 from module.config import cfg
 from module.decorator.decorator import begin_and_finish_time_log
 from module.logger import log
+from module.my_error.my_error import cannotOperateGameError
 from module.ocr import ocr
 from tasks import sins
 from tasks.base.retry import retry
@@ -204,6 +205,7 @@ class Battle:
         combat_count=1,
         defense_for_solo_state: DefenseForSoloState | None = None,
         prioritize_skill_3=False,
+        turn_handler: Callable[[], None] | None = None,
     ):
         chance = self.INIT_CHANCE
         waiting = self._update_wait_time()
@@ -224,6 +226,9 @@ class Battle:
 
         def perform_battle_operation() -> None:
             nonlocal defense_for_solo_used_this_turn
+            if turn_handler is not None:
+                turn_handler()
+                return
             limited_defense_succeeded = self._battle_operation(
                 first_turn=first_turn,
                 defense_first_round=defense_first_round,
@@ -246,6 +251,8 @@ class Battle:
             if auto.get_restore_time() is not None:
                 start_time = max(start_time, auto.get_restore_time())
             if infinite_battle is False and check_times(start_time, timeout=900 + 300 * combat_count, logs=False):
+                if turn_handler is not None:
+                    raise cannotOperateGameError("空洞预设战斗超时，已停止")
                 from tasks.base.back_init_menu import back_init_menu
 
                 back_init_menu()
@@ -282,6 +289,8 @@ class Battle:
 
             # 战斗失败重启
             if auto.find_element("battle/dead_all.png"):
+                if turn_handler is not None:
+                    raise cannotOperateGameError("空洞预设战斗失败，已停止，未自动重开")
                 dead_select = auto.find_element("battle/dead_all.png", find_type="image_with_multiple_targets")
                 if len(dead_select) == 3:
                     dead_select = sorted(dead_select, key=lambda y: y[1])
@@ -306,7 +315,7 @@ class Battle:
                     return False
                 continue
 
-            if in_mirror and not cfg.fight_to_last_man and not infinite_battle:
+            if turn_handler is None and in_mirror and not cfg.fight_to_last_man and not infinite_battle:
                 if dead_position := auto.find_element("battle/dead.png"):
                     my_scale = cfg.set_win_size / 1440
                     dead_bbox = (
@@ -477,7 +486,7 @@ class Battle:
                 if infinite_battle:
                     continue
                 break
-            if not self.is_tool:
+            if not self.is_tool and turn_handler is None:
                 # 点击中心以跳过播报员播报加速结算动画
                 random_number = random.randint(-10, 10)
                 width = int(cfg.set_win_size * 16 / 9)
@@ -539,6 +548,8 @@ class Battle:
             if chance < 0:
                 if infinite_battle:
                     continue
+                if turn_handler is not None:
+                    raise cannotOperateGameError("空洞预设未识别到战斗待机或结算画面，已停止")
                 break
 
         self.defense_all_time = False

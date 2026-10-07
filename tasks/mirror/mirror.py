@@ -6,7 +6,7 @@ import numpy as np
 
 from module.automation import auto
 from module.config import TeamSetting, cfg
-from module.config.mirror_presets import ensure_mirror_preset_ready
+from module.config.mirror_presets import ensure_mirror_preset_ready, faust_hollow_formation
 from module.decorator.decorator import begin_and_finish_time_log
 from module.logger import log
 from module.my_error.my_error import (
@@ -22,6 +22,7 @@ from tasks.base.make_enkephalin_module import make_enkephalin_module
 from tasks.base.retry import retry
 from tasks.battle import battle
 from tasks.battle.battle import DefenseForSoloState
+from tasks.battle.faust_hollow import FaustHollowBattleUI, FaustHollowTurnController
 from tasks.event import event_handling
 from tasks.mirror.in_shop import Shop
 from tasks.mirror.reward_card import get_reward_card
@@ -100,7 +101,7 @@ class Mirror:
         self.floor_times = [-9999.0 for i in range(5)]  # 负值代表缺失值
         self.LOOP_COUNT = 250
 
-        self.mirror_map = MirrorMap(hard_mode=self.hard_mode)
+        self.mirror_map = MirrorMap(hard_mode=self.hard_mode, mirror_preset=self.mirror_preset)
 
         self.pass_coins = None
 
@@ -113,12 +114,20 @@ class Mirror:
         return result, time.time() - start
 
     def _fight(self) -> None:
+        turn_handler = None
+        if self.mirror_preset == "faust_hollow":
+            ui = FaustHollowBattleUI(
+                auto, cfg.set_win_size / 1440,
+                ImageUtils.get_bbox(ImageUtils.load_image("battle/turn_ocr_assets.png")),
+            )
+            turn_handler = FaustHollowTurnController(self.floor, ui)
         _, elapsed = self._time_call(
             battle.fight,
             avoid_skill_3=self.avoid_skill_3,
             prioritize_skill_3=self.prioritize_skill_3,
             defense_first_round=self.defense_first_round,
             defense_for_solo_state=self.defense_for_solo_state,
+            turn_handler=turn_handler,
         )
         self.battle_total_time += elapsed
 
@@ -341,7 +350,7 @@ class Mirror:
             if auto.find_element("teams/identify_assets.png"):
                 # 如果第一次启动脚本，还没进行编队，就先编队
                 if self.first_battle:
-                    team_formation(self.sinner_team)
+                    team_formation(faust_hollow_formation(self.floor) if self.mirror_preset == "faust_hollow" else self.sinner_team)
                     self.first_battle = False
                     continue
                 # 战斗配队失败的情况
@@ -351,6 +360,7 @@ class Mirror:
                 # 如果未开启战斗直至全灭，则检测罪人幸存人数是否少于10人
                 if (
                     not cfg.fight_to_last_man
+                    and self.mirror_preset != "faust_hollow"
                     and not self.defense_for_solo
                     and not (
                         auto.find_element("teams/12_sinner_live_assets.png",threshold=0.75)
@@ -1076,6 +1086,14 @@ class Mirror:
 
     @begin_and_finish_time_log(task_name="镜牢寻路")
     def search_road(self):
+        if self.mirror_preset == "faust_hollow":
+            try:
+                next_node = self.mirror_map.get_next_step()
+                if isinstance(next_node, str) and self.mirror_map.enter_next_node(next_node):
+                    return True
+                raise cannotOperateGameError("空洞预设未找到或未进入指定路线节点，已停止")
+            finally:
+                auto.mouse_to_blank()
         if cfg.mirror_keyboard_simple_pathfinding:
             if search_road_simple_keyboard():
                 return True

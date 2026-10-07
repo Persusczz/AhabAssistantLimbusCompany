@@ -7,8 +7,9 @@ import cv2
 
 from module.automation import auto
 from module.config import cfg
+from module.config.mirror_presets import faust_hollow_node_weights
 from module.logger import log
-from module.my_error.my_error import InputAttributeError
+from module.my_error.my_error import InputAttributeError, cannotOperateGameError
 from tasks.base.retry import retry
 
 # 道路网格参数基于 2560×1440 游戏截图标定。
@@ -17,16 +18,26 @@ ROAD_ROW_GAP = 437
 
 
 class MirrorMap:
-    def __init__(self, floor=1, hard_mode=False):
+    def __init__(self, floor=1, hard_mode=False, mirror_preset="standard"):
         self.floor = floor
         self.floor_map = []
         self.map = {}
         self.hard_mode = hard_mode
+        self.mirror_preset = mirror_preset
+        self.floor_nodes = []
+        self.current_node = None
+
+    def _take_step(self):
+        next_step = self.floor_map.pop(0)
+        self.current_node = self.floor_nodes.pop(0) if self.floor_nodes else None
+        if self.mirror_preset == "faust_hollow" and self.current_node not in all_node_weight:
+            raise cannotOperateGameError("空洞预设未识别到下一节点类型，已停止寻路")
+        return next_step
 
     def get_next_step(self):
         re_identify = False
         if len(self.floor_map) > 0:
-            next_step = self.floor_map.pop(0)
+            next_step = self._take_step()
             if next_step is not None:
                 return next_step
             else:
@@ -35,7 +46,11 @@ class MirrorMap:
             re_identify = True
 
         if re_identify is True:
-            self.floor_map, self.floor_nodes = search_road_from_road_map(hard_mode=self.hard_mode)
+            self.floor_map, self.floor_nodes = search_road_from_road_map(
+                hard_mode=self.hard_mode,
+                node_weights=faust_hollow_node_weights(self.floor) if self.mirror_preset == "faust_hollow" else None,
+                strict=self.mirror_preset == "faust_hollow",
+            )
             if self.floor_map is True and self.floor_nodes is True:
                 return True
             if self.floor_map is False:
@@ -46,7 +61,7 @@ class MirrorMap:
             self.map[f"floor{self.floor}"] = [self.floor_map[:], self.floor_nodes[:]]
 
         if len(self.floor_map) > 0:
-            next_step = self.floor_map.pop(0)
+            next_step = self._take_step()
             return next_step
         else:
             return False
@@ -68,6 +83,8 @@ class MirrorMap:
             sleep(1.25)
             if auto.click_element("mirror/road_in_mir/enter_assets.png", take_screenshot=True):
                 return True
+        if self.mirror_preset == "faust_hollow":
+            return False
         if auto.click_element("mirror/mybus_default_distance.png", take_screenshot=True):
             sleep(1.25)
             if auto.click_element("mirror/road_in_mir/enter_assets.png", take_screenshot=True):
@@ -102,6 +119,8 @@ class MirrorMap:
         log.debug(f"镜牢地图楼层缓存更新: {self.floor} -> {floor}")
         self.floor = floor
         self.floor_map = []
+        self.floor_nodes = []
+        self.current_node = None
 
 
 def get_node_weight(x, y):
@@ -273,12 +292,12 @@ def search_road_farthest_distance():
     return False
 
 
-def search_road_from_road_map(hard_mode=False):
+def search_road_from_road_map(hard_mode=False, node_weights=None, strict=False):
     start_time = time.time()
     scale = cfg.set_win_size / 1440
     bus = None
 
-    if auto.click_element("mirror/mybus_default_distance.png", take_screenshot=True):
+    if not strict and auto.click_element("mirror/mybus_default_distance.png", take_screenshot=True):
         sleep(0.75)
         if auto.click_element("mirror/road_in_mir/enter_assets.png", take_screenshot=True):
             return True, True
@@ -333,7 +352,9 @@ def search_road_from_road_map(hard_mode=False):
 
         _, source_position, target_position = connections[0]
         row_delta = target_position.value - source_position.value
-        return [{1: "U", 0: "M", -1: "D"}[row_delta]], ["unknown"]
+        node_class = next((node[0] for node in nodes_column[0]
+                           if _position_from_y(node[1][1], bus, bus_row) == target_position), "unknown")
+        return [{1: "U", 0: "M", -1: "D"}[row_delta]], [node_class]
     if reset_position is not False:
         if reset_position == "Bottom":
             set_y_position = 1100 * scale
@@ -378,6 +399,7 @@ def search_road_from_road_map(hard_mode=False):
         bus_row=bus_row,
         bus_position=bus,
         hard_mode=hard_mode,
+        node_weights=node_weights,
     )
     route_graph.init_road(connections)
 
@@ -639,6 +661,7 @@ class RouteGraph:
         bus_row,
         bus_position,
         hard_mode=False,
+        node_weights=None,
     ):
         """初始化三行路线图；连线由 init_road() 写入。"""
         self.bus_row = bus_row
@@ -647,6 +670,7 @@ class RouteGraph:
         self._add_new_column()
         self._set_node(1, bus_row, "bus", 1)
         self.hard_mode = hard_mode
+        self.node_weights = node_weights if node_weights is not None else all_node_weight
         self._init_node(all_nodes, bus_position)
 
     def _add_new_column(self):
@@ -673,7 +697,7 @@ class RouteGraph:
                     self.column_count,
                     vertical_pos,
                     node_entry[0],
-                    all_node_weight[node_entry[0]],
+                    self.node_weights[node_entry[0]],
                 )
 
         if self.hard_mode is False:
@@ -854,11 +878,11 @@ class RouteGraph:
         返回：(方向列表, 节点类别列表)
         """
         directions = []
-        # 提取路径中所有节点的类别
-        class_list = [node.node_class for node in path]
+        # 与移动方向一一对应，只记录目的节点，不包含起始 Bus。
+        class_list = [node.node_class for node in path[1:]]
 
         if len(path) < 2:
-            return directions, class_list  # 路径长度不足，无方向，但仍返回类别列表
+            return directions, class_list
 
         for i in range(len(path) - 1):
             current_node = path[i]

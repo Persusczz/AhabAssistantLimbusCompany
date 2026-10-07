@@ -1,4 +1,4 @@
-# 草稿：可在队伍设置中载入和查看；整局自动执行尚未接通。
+# 草稿：战斗与寻路已接入，缺少真实识别图片、商店和特殊场景，整局仍禁止启动。
 mirror_preset: faust_hollow
 remark_name: 空洞浮士德（草稿）
 team_system: 4
@@ -47,20 +47,20 @@ preset_plan:
       theme_pack: 赌徒包
       keywords: [赌徒, gambl, casino]
       deployed: [浮士德]
-      combat: 视频使用过载空洞；精确操作待标定
+      combat: 过载空洞；代码已接入，待真实图片标定
       shop: 建议购买呼吸饰品
     - floor: 2
       theme_pack: 地狱鸡
       keywords: [地狱鸡, chick]
       deployed: [浮士德]
-      combat: 视频使用过载空洞；精确操作待标定
+      combat: 过载空洞；代码已接入，待真实图片标定
       shop: 随缘购买三级饰品
     - floor: 3
       theme_pack: 色欲包（地狱鸡Boss封面）
       keywords: [情感困惑, seduct]
       deployed: [浮士德]
       route: 优先非集中遭遇战（连连看）和事件；不可避免的精英二选一选小Boss
-      combat: 视频使用过载空洞；小Boss第一回合磨刀、第二回合击杀
+      combat: 常规战过载空洞已接入，待图片标定；小Boss第一回合磨刀尚未接入
       shop: 随缘购买三级饰品
     - floor: 4
       theme_pack: 憎恶与绝望
@@ -77,6 +77,6 @@ preset_plan:
   blockers:
     - 盛宴款待、白线的观测菜单行列仍待确认
     - 另外两件四级饰品目标待确认
-    - 指定EGO、过载、单人守备和异想体部位索敌尚未接入
+    - 战斗流程已接入，但缺少空洞、守备和二号线索敌的真实识别图片与实机标定
     - 四件饰品合成、指定理智恢复和后备人格更换尚未接入
-    - 第三层指定节点与苦难筛选尚未接入
+    - 第三层小Boss第一回合磨刀与苦难筛选尚未接入

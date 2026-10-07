@@ -55,6 +55,7 @@ from app.starlight_bonus import StarlightCard, StarlightLevelSelector
 from app.theme_pack_setting_interface import ThemePackSettingDialog
 from module.config import TeamSetting, cfg, theme_list
 from module.config.mirror_presets import apply_faust_hollow_preset, load_faust_hollow_plan
+from module.config.faust_hollow_assets import missing_faust_hollow_images
 from module.config.team_import_export import (
     apply_team_settings,
     export_team_settings,
@@ -506,6 +507,7 @@ class TeamSettingCard(QFrame):
             route = " → ".join(entry["theme_pack"] for entry in plan["floors"])
             self.preset_status_label.setText(
                 self.tr("空洞预设草稿：整局自动执行尚未就绪，启动会停止。")
+                + "\n" + self.tr("待采集识别模板：{count} 项").format(count=len(missing_faust_hollow_images()))
                 + "\n" + route + "\n" + "；".join(plan["blockers"])
             )
 

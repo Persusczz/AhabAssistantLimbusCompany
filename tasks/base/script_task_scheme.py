@@ -103,6 +103,8 @@ def onetime_mir_process(team_setting: TeamSetting, team_num: int):
         else:
             return False
     except Exception as e:
+        if team_setting.mirror_preset == "faust_hollow":
+            raise
         log.exception(f"镜牢行动出错: {e}")
         return False
 
