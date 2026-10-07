@@ -6,7 +6,7 @@ license = "AGPL-3.0-or-later"
 authors = [{ name = "KIYI671" }]
 keywords = ["limbus", "automation", "pyqt", "ocr", "game-assistant"]
 requires-python = ">=3.12"
-version = "1.1.1"
+version = "1.1.2"
 
 dependencies = [
     "pyside6>=6.9.2",

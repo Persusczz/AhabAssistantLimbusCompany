@@ -12,7 +12,7 @@ opening_items: true
 opening_items_system: 4
 opening_items_select: 0
 observe_ego_gift: true
-observe_ego_gift_selected: []
+observe_ego_gift_selected: [general_3_1_7, general_3_3_3]
 second_system: true
 second_system_select: 5
 second_system_action: [1, 1, 1, 1]
@@ -29,12 +29,12 @@ preset_plan:
   interceptor: 黑派良秀
   reserves: [豆宝, 初始罗佳, 黑派良秀]
   observed_gifts:
-    - name: 盛宴款待
+    - name: 盛情款待
       tier: 3
-      selection: null
+      selection: general_3_1_7
     - name: 白线
       tier: 3
-      selection: null
+      selection: general_3_3_3
   tier_iv_gifts: [止水, 美感, null, null]
   enhance_gifts: [止水, 美感]
   video_gifts: [止水, 美感, Fragment of Conceit, Fragment of Friction, Fragment of Decay]
@@ -75,8 +75,7 @@ preset_plan:
       combat: 卸下良秀；第一回合觉醒空洞，第二回合瞄准头部放觉醒空洞，命中玫瑰两个部位
       shop: 恢复浮士德理智
   blockers:
-    - 盛宴款待、白线的观测菜单行列仍待确认
     - 另外两件四级饰品目标待确认
-    - 战斗流程已接入，但缺少空洞、守备和二号线索敌的真实识别图片与实机标定
+    - 已收到空洞菜单和过载标记，仍需确认蓝色与金光技能图状态，并补齐守备、二号线索敌图片与实机标定
     - 四件饰品合成、指定理智恢复和后备人格更换尚未接入
     - 第三层小Boss第一回合磨刀与苦难筛选尚未接入

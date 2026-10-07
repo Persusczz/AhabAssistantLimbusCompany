@@ -43,11 +43,17 @@ def test_preset_resets_conflicting_settings_and_preserves_team_and_statistics():
     assert original.total_mirror_time_normal[0] == 10
 
 
-def test_plan_keeps_unknown_observation_positions_and_gifts_explicit():
+def test_plan_uses_confirmed_tier_three_observation_positions_and_keeps_unknown_gifts():
     plan = load_faust_hollow_plan()
     assert plan["status"] == "draft"
     assert len(plan["observed_gifts"]) == 2
-    assert all(gift["selection"] is None for gift in plan["observed_gifts"])
+    assert [gift["tier"] for gift in plan["observed_gifts"]] == [3, 3]
+    positions = ["general_3_1_7", "general_3_3_3"]
+    assert [gift["selection"] for gift in plan["observed_gifts"]] == positions
+    preset = apply_faust_hollow_preset(TeamSetting())
+    assert preset.observe_ego_gift is True
+    assert preset.observe_ego_gift_selected == positions
+    assert TeamSetting.model_validate(preset.model_dump()).observe_ego_gift_selected == positions
     assert len(plan["tier_iv_gifts"]) == 4
     assert sum(gift is None for gift in plan["tier_iv_gifts"]) == 2
     assert plan["interceptor"] == "黑派良秀"

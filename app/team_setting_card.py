@@ -507,7 +507,7 @@ class TeamSettingCard(QFrame):
             route = " → ".join(entry["theme_pack"] for entry in plan["floors"])
             self.preset_status_label.setText(
                 self.tr("空洞预设草稿：整局自动执行尚未就绪，启动会停止。")
-                + "\n" + self.tr("待采集识别模板：{count} 项").format(count=len(missing_faust_hollow_images()))
+                + "\n" + self.tr("待补齐或标定识别模板：{count} 项").format(count=len(missing_faust_hollow_images()))
                 + "\n" + route + "\n" + "；".join(plan["blockers"])
             )
 

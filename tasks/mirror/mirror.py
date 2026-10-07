@@ -958,6 +958,7 @@ class Mirror:
 
         log.debug("开始选择观测EGO饰品")
         auto.model = "clam"
+        strict_observation = self.mirror_preset == "faust_hollow"
 
         my_scale = cfg.set_win_size / 1440
         benchmark_point = None
@@ -967,6 +968,8 @@ class Mirror:
             benchmark_point = (point[0] - 110 * my_scale, point[1])
 
         if not benchmark_point:
+            if strict_observation:
+                raise cannotOperateGameError("空洞预设未识别到观测体系菜单，已停止")
             return
 
         gift_box = ImageUtils.get_bbox(ImageUtils.load_image("mirror/road_to_mir/observe_ego_gift/gift_box_bbox.png"))
@@ -1012,12 +1015,15 @@ class Mirror:
                         level_point = p
                         break
                 if level_point is None:
+                    if strict_observation:
+                        raise cannotOperateGameError(f"空洞预设未识别到观测饰品等级：{gift_id}")
                     continue
                 _select_gift(level_point)
                 sleep(0.5)
 
 
         # 观测饰品选择完毕
+        observation_confirmed = False
         for _ in range(5):
             bbox =ImageUtils.get_bbox(ImageUtils.load_image("mirror/road_to_mir/observe_ego_gift/select_gift_bbox.png"))
             ocr_result = auto.find_language_text("选择", "select",bbox )
@@ -1025,7 +1031,10 @@ class Mirror:
                 auto.mouse_click((bbox[0] + bbox[2]) / 2, (bbox[1] + bbox[3]) / 2)
                 sleep(1)
                 if auto.click_element("mirror/shop/leave_shop_confirm_assets.png",take_screenshot=True):
+                    observation_confirmed = True
                     break
+        if strict_observation and not observation_confirmed:
+            raise cannotOperateGameError("空洞预设未确认观测饰品选择，已停止")
         for _ in range(5):
             auto.click_element("mirror/road_in_mir/ego_gift_get_confirm_assets.png",take_screenshot=True)
 

@@ -5,6 +5,7 @@ from PIL import Image
 from module.automation import auto
 from module.config import TeamSetting, cfg
 from module.logger import log
+from module.my_error.my_error import cannotOperateGameError
 from module.ocr import ocr
 from tasks import all_sinners_name, all_sinners_name_zh, all_systems, system_cn_zh
 from tasks.base.back_init_menu import back_init_menu
@@ -15,6 +16,7 @@ from utils.image_utils import ImageUtils
 
 class Shop:
     def __init__(self, team_setting: TeamSetting):
+        self.mirror_preset = team_setting.mirror_preset
         self.system = all_systems[team_setting.team_system]  # 队伍体系
         self.sinner_team = team_setting.sinner_order  # 选择的罪人序列
         # 获取舍弃的饰品体系列表
@@ -97,7 +99,11 @@ class Shop:
                 log.error("无法升级ego饰品")
                 break
 
-    def buy_gifts(self):
+    def buy_gifts(self, layer=None):
+        faust_hollow = self.mirror_preset == "faust_hollow"
+        if faust_hollow and layer not in range(1, 6):
+            raise cannotOperateGameError("空洞预设未确认商店楼层，已停止购买")
+
         def sort_points(points, complete=0, threshold=40):
             # 第一步：先按 X 坐标排好（左右顺序）
             points.sort(key=lambda p: p[0])
@@ -179,12 +185,12 @@ class Shop:
                         while auto.take_screenshot() is None:
                             continue
 
-            if self.fuse_aggressive_switch:
+            if (faust_hollow and layer >= 2) or (not faust_hollow and self.fuse_aggressive_switch):
                 log.debug("开始购买强化素材")
-                if self.shopping_strategy is False or (
+                if faust_hollow or self.shopping_strategy is False or (
                     self.shopping_strategy and self.shopping_strategy_select in (1, 3, 4)
                 ):
-                    if auto.click_element("mirror/shop/level_IV_to_buy.png", threshold=0.82):
+                    if not faust_hollow and auto.click_element("mirror/shop/level_IV_to_buy.png", threshold=0.82):
                         sleep(1)
                         while auto.take_screenshot() is None:
                             continue
@@ -215,7 +221,7 @@ class Shop:
                         else:
                             auto.mouse_click_blank()
 
-            if self.shopping_strategy is False or (
+            if faust_hollow or self.shopping_strategy is False or (
                 self.shopping_strategy and self.shopping_strategy_select in (2, 4, 5)
             ):
                 log.debug("开始购买本体系饰品")
@@ -1382,7 +1388,7 @@ class Shop:
                     if self.do_not_buy:
                         buy = True
                     else:
-                        self.buy_gifts()
+                        self.buy_gifts(layer)
                         buy = True
                         continue
 
